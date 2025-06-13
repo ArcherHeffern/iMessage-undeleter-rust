@@ -71,7 +71,7 @@ impl QueryContext {
     ///
     /// let mut context = QueryContext::default();
     /// assert!(!context.has_filters());
-    /// context.set_start("2023-01-01");
+    /// context.set_limit(10);
     /// assert!(context.has_filters());
     /// ```
     #[must_use]

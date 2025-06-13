@@ -732,17 +732,8 @@ impl Message {
     ) -> String {
         let mut filters = String::new();
 
-        // Start date filter
-        if let Some(limit) = context.limit {
-            filters.push_str(&format!(" LIMIT {limit}"));
-        }
-
         // Chat ID filter, optionally including recoverable messages
         if let Some(chat_ids) = &context.selected_chat_ids {
-            if !filters.is_empty() {
-                filters.push_str(" AND ");
-            }
-
             // Allocate the filter string for interpolation
             let ids = chat_ids
                 .iter()
@@ -751,15 +742,18 @@ impl Message {
                 .join(", ");
 
             if include_recoverable {
-                filters.push_str(&format!(" (c.chat_id IN ({ids}) OR d.chat_id IN ({ids}))"));
+                filters.push_str(&format!("WHERE (c.chat_id IN ({ids}) OR d.chat_id IN ({ids}))"));
             } else {
-                filters.push_str(&format!(" c.chat_id IN ({ids})"));
+                filters.push_str(&format!("WHERE c.chat_id IN ({ids})"));
             }
         }
 
-        if !filters.is_empty() {
-            return format!("WHERE {filters}");
+        // limit filter
+        if let Some(limit) = context.limit {
+            filters.push_str(&format!(" LIMIT {limit}"));
         }
+
+
         filters
     }
 

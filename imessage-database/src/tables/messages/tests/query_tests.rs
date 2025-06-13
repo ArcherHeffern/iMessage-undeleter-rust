@@ -18,7 +18,7 @@ mod exclude_recoverable_tests {
         context.set_limit(10);
 
         let statement = Message::generate_filter_statement(&context, false);
-        assert_eq!(statement, "LIMIT 10");
+        assert_eq!(statement, " LIMIT 10");
     }
 
     #[test]
@@ -27,7 +27,7 @@ mod exclude_recoverable_tests {
         context.set_selected_chat_ids(BTreeSet::from([1, 2, 3]));
 
         let statement = Message::generate_filter_statement(&context, false);
-        assert_eq!(statement, "WHERE  c.chat_id IN (1, 2, 3)");
+        assert_eq!(statement, "WHERE c.chat_id IN (1, 2, 3)");
     }
 
     #[test]
@@ -84,7 +84,7 @@ mod include_recoverable_tests {
         let statement = Message::generate_filter_statement(&context, true);
         assert_eq!(
             statement,
-            "WHERE  (c.chat_id IN (1, 2, 3) OR d.chat_id IN (1, 2, 3))"
+            "WHERE (c.chat_id IN (1, 2, 3) OR d.chat_id IN (1, 2, 3))"
         );
     }
 
