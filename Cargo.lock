@@ -494,9 +494,7 @@ dependencies = [
 
 [[package]]
 name = "imessage-database"
-version = "2.7.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "ff39d96bda3e104fa0e920ecdc7dc06188c3f1b174316e830b1bf356f4637809"
+version = "0.0.0"
 dependencies = [
  "chrono",
  "lzma-rs",

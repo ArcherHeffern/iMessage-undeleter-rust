@@ -1,20 +1,11 @@
-[package]
-authors = ["Christopher Sardegna <imessage@reagentx.net>"]
-categories = ["command-line-utilities"]
-description = "Export iMessage data and run iMessage diagnostics"
-edition = "2024"
-exclude = [".github", "build.sh"]
-license = "GPL-3.0-or-later"
-name = "imessage-undeleter"
-repository = "https://github.com/archerheffern/imessage-undeleter-rust"
-version = "0.0.0"
+[workspace]
+resolver = "2"
+members = ["imessage-database", "imessage-undeleter"]
 
-[dependencies]
-clap = { version = "=4.5.40", features = ["cargo"] }
-filetime = "=0.2.25"
-fdlimit = "=0.3.0"
-fs2 = "=0.4.3"
-indicatif = "=0.17.11"
-rusqlite = { version = "0.36.0", features = ["blob", "bundled"] }
-crabapple = { version = "=0.4.1" }
-imessage-database = "2.7.1"
+[profile.release]
+# Perform Link Time Optimization
+lto = true
+# Use a single codegen unit for the entire crate
+codegen-units = 1
+# Do not unwind stack on crash
+panic = "abort"
