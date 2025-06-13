@@ -82,7 +82,7 @@ impl Options {
         let attachment_manager_type: Option<&String> = args.get_one(OPTION_ATTACHMENT_MANAGER);
         let diagnostic = args.get_flag(OPTION_DIAGNOSTIC);
         let user_export_path: Option<&String> = args.get_one(OPTION_EXPORT_PATH);
-        let check_last_n_messages: Option<&i32> = args.get_one(OPTION_CHECK_LAST_N_MESSAGES);
+        let check_last_n_messages_string: Option<&String> = args.get_one(OPTION_CHECK_LAST_N_MESSAGES);
         let no_lazy = args.get_flag(OPTION_DISABLE_LAZY_LOADING);
         let custom_name: Option<&String> = args.get_one(OPTION_CUSTOM_NAME);
         let use_caller_id = args.get_flag(OPTION_USE_CALLER_ID);
@@ -90,6 +90,7 @@ impl Options {
         let conversation_filter: Option<&String> = args.get_one(OPTION_CONVERSATION_FILTER);
         let cleartext_password: Option<&String> = args.get_one(OPTION_CLEARTEXT_PASSWORD);
 
+        let check_last_n_messages: Option<i32> = check_last_n_messages_string.map(|s| s.parse::<i32>().ok()).flatten();
 
         // During `diagnostics`, none of these may be set
         let diag_conflicts = [
