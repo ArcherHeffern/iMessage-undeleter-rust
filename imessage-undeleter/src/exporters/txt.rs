@@ -11,7 +11,7 @@ use std::{
 use crate::{
     app::{
         compatibility::attachment_manager::AttachmentManagerMode, error::RuntimeError,
-        progress::ExportProgress, runtime::Config,
+        runtime::Config,
     },
     exporters::exporter::{ATTACHMENT_NO_FILENAME, BalloonFormatter, Exporter, Writer},
 };
@@ -57,11 +57,9 @@ pub struct TXT<'a> {
     pub files: HashMap<String, BufWriter<File>>,
     /// Writer instance for orphaned messages
     pub orphaned: BufWriter<File>,
-    /// Progress Bar model for alerting the user about current export state
-    pb: ExportProgress,
 }
 
-impl<'a> Exporter<'a> for TXT<'a> {
+impl<'a> TXT<'a> {
     fn new(config: &'a Config) -> Result<Self, RuntimeError> {
         let mut orphaned = config.options.export_path.clone();
         orphaned.push(ORPHANED);
@@ -73,25 +71,12 @@ impl<'a> Exporter<'a> for TXT<'a> {
             config,
             files: HashMap::new(),
             orphaned: BufWriter::new(file),
-            pb: ExportProgress::new(),
         })
     }
 
-    fn iter_messages(&mut self) -> Result<(), RuntimeError> {
-        // Tell the user what we are doing
-        eprintln!(
-            "Exporting to {} as txt...",
-            self.config.options.export_path.display()
-        );
-
+    fn iter_messages(&mut self) -> Result<Vec<Message>, RuntimeError> {
         // Keep track of current message ROWID
         let mut current_message_row = -1;
-
-        // Set up progress bar
-        let mut current_message = 0;
-        let total_messages =
-            Message::get_count(self.config.db(), &self.config.options.query_context)?;
-        self.pb.start(total_messages);
 
         let mut statement =
             Message::stream_rows(self.config.db(), &self.config.options.query_context)?;
@@ -100,17 +85,19 @@ impl<'a> Exporter<'a> for TXT<'a> {
             .query_map([], |row| Ok(Message::from_row(row)))
             .map_err(|err| RuntimeError::DatabaseError(TableError::Messages(err)))?;
 
+        let mut msgs: Vec<Message> = vec![];
         for message in messages {
-            let mut msg = Message::extract(message)?;
+            let msg = Message::extract(message)?;
 
             // Early escape if we try and render the same message GUID twice
             // See https://github.com/ReagentX/imessage-exporter/issues/135 for rationale
             if msg.rowid == current_message_row {
-                current_message += 1;
                 continue;
             }
             current_message_row = msg.rowid;
+            msgs.push(msg);
 
+            /*
             // Generate the text of the message
             let _ = msg.generate_text(self.config.db());
 
@@ -124,13 +111,9 @@ impl<'a> Exporter<'a> for TXT<'a> {
                 let message = self.format_message(&msg, 0)?;
                 TXT::write_to_file(self.get_or_create_file(&msg)?, &message)?;
             }
-            current_message += 1;
-            if current_message % 99 == 0 {
-                self.pb.set_position(current_message);
-            }
+            */
         }
-        self.pb.finish();
-        Ok(())
+        Ok(msgs)
     }
 
     /// Create a file for the given chat, caching it so we don't need to build it later
@@ -369,28 +352,12 @@ impl<'a> Writer<'a> for TXT<'a> {
         message: &Message,
         metadata: &AttachmentMeta,
     ) -> Result<String, &'a str> {
-        // When encoding videos, alert the user that the time estimate may be inaccurate
-        let will_encode = matches!(attachment.mime_type(), MediaType::Video(_))
-            && matches!(
-                self.config.options.attachment_manager.mode,
-                AttachmentManagerMode::Full
-            );
-
-        if will_encode {
-            self.pb
-                .set_busy_style("Encoding video, estimates paused...".to_string());
-        }
-
         // Copy the file, if requested
         self.config
             .options
             .attachment_manager
             .handle_attachment(message, attachment, self.config)
             .ok_or(attachment.filename().ok_or(ATTACHMENT_NO_FILENAME)?)?;
-
-        if will_encode {
-            self.pb.set_default_style();
-        }
 
         // Append the transcription if one is provided
         if let Some(transcription) = metadata.transcription {

@@ -427,7 +427,7 @@ impl Config {
             self.get_messages();
             // loop {
             // }
-            TXT::new(self)?.iter_messages()?;
+            // TXT::new(self)?.iter_messages()?;
         }
         println!("Done!");
         Ok(())

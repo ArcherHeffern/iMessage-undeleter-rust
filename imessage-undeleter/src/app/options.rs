@@ -119,7 +119,7 @@ impl Options {
         // Build query context
         let mut query_context = QueryContext::default();
         if let Some(limit) = check_last_n_messages {
-            query_context.set_limit(limit);
+            query_context.set_limit(limit.clone());
         }
 
         // We have to allocate a PathBuf here because it can be created from data owned by this function in the default state
