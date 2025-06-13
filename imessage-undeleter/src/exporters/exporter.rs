@@ -23,24 +23,9 @@ use imessage_database::{
     },
 };
 
-use crate::app::{error::RuntimeError, runtime::Config};
+use crate::app::{error::RuntimeError};
 
 pub(crate) const ATTACHMENT_NO_FILENAME: &str = "Attachment missing name metadata!";
-
-/// Defines behavior for iterating over messages from the iMessage database and managing export files
-pub trait Exporter<'a> {
-    /// Create a new exporter with references to the cached data
-    fn new(config: &'a Config) -> Result<Self, RuntimeError>
-    where
-        Self: Sized;
-    /// Begin iterating over the messages table
-    fn iter_messages(&mut self) -> Result<(), RuntimeError>;
-    /// Get the file handle to write to, otherwise create a new one
-    fn get_or_create_file(
-        &mut self,
-        message: &Message,
-    ) -> Result<&mut BufWriter<File>, RuntimeError>;
-}
 
 /// Defines behavior for formatting message instances to the desired output format
 pub(super) trait Writer<'a> {

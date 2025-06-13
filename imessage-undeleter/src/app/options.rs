@@ -298,6 +298,14 @@ fn get_command() -> Command {
                 .display_order(14)
                 .value_name("password"),
         )
+        .arg(
+            Arg::new(OPTION_CHECK_LAST_N_MESSAGES)
+                .short('n')
+                .long(OPTION_CHECK_LAST_N_MESSAGES)
+                .help("Only Check last n messages")
+                .display_order(15)
+                .value_name("10"),
+        )
 }
 
 /// Parse arguments from the command line

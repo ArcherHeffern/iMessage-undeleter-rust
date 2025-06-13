@@ -3,7 +3,7 @@
 mod app;
 mod exporters;
 
-pub use exporters::{exporter::Exporter, txt::TXT};
+pub use exporters::txt::TXT;
 
 use app::{
     options::{Options, from_command_line},

@@ -19,10 +19,10 @@ use crate::{
             backup::{decrypt_backup, get_decrypted_message_database},
         },
         error::RuntimeError,
-        options::{OPTION_CLEARTEXT_PASSWORD, Options},
+        options::{Options, OPTION_CLEARTEXT_PASSWORD},
         sanitizers::sanitize_filename,
     },
-    exporters::exporter::ATTACHMENT_NO_FILENAME,
+    exporters::exporter::ATTACHMENT_NO_FILENAME, TXT,
 };
 
 use imessage_database::{
@@ -423,11 +423,9 @@ impl Config {
                 create_dir_all(self.attachment_path())?;
             }
 
-            // Create exporter, pass it data we care about, then kick it off
-            self.get_messages();
-            // loop {
-            // }
-            // TXT::new(self)?.iter_messages()?;
+            for mut message in TXT::new(self)?.iter_messages()? {
+                println!("{}", message.generate_text(self.db()).unwrap())
+            }
         }
         println!("Done!");
         Ok(())

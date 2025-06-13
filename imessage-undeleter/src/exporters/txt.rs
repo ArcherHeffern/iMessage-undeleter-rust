@@ -1,7 +1,6 @@
 use std::{
     collections::{
         HashMap,
-        hash_map::Entry::{Occupied, Vacant},
     },
     fs::File,
     io::{BufWriter, Write},
@@ -13,7 +12,7 @@ use crate::{
         compatibility::attachment_manager::AttachmentManagerMode, error::RuntimeError,
         runtime::Config,
     },
-    exporters::exporter::{ATTACHMENT_NO_FILENAME, BalloonFormatter, Exporter, Writer},
+    exporters::exporter::{ATTACHMENT_NO_FILENAME, BalloonFormatter, Writer},
 };
 
 use imessage_database::{
@@ -36,7 +35,7 @@ use imessage_database::{
         },
     },
     tables::{
-        attachment::{Attachment, MediaType},
+        attachment::{Attachment},
         messages::{
             Message,
             models::{AttachmentMeta, BubbleComponent, GroupAction, TextAttributes},
@@ -60,7 +59,7 @@ pub struct TXT<'a> {
 }
 
 impl<'a> TXT<'a> {
-    fn new(config: &'a Config) -> Result<Self, RuntimeError> {
+    pub fn new(config: &'a Config) -> Result<Self, RuntimeError> {
         let mut orphaned = config.options.export_path.clone();
         orphaned.push(ORPHANED);
         orphaned.set_extension("txt");
@@ -74,7 +73,7 @@ impl<'a> TXT<'a> {
         })
     }
 
-    fn iter_messages(&mut self) -> Result<Vec<Message>, RuntimeError> {
+    pub fn iter_messages(&mut self) -> Result<Vec<Message>, RuntimeError> {
         // Keep track of current message ROWID
         let mut current_message_row = -1;
 
@@ -114,31 +113,6 @@ impl<'a> TXT<'a> {
             */
         }
         Ok(msgs)
-    }
-
-    /// Create a file for the given chat, caching it so we don't need to build it later
-    fn get_or_create_file(
-        &mut self,
-        message: &Message,
-    ) -> Result<&mut BufWriter<File>, RuntimeError> {
-        match self.config.conversation(message) {
-            Some((chatroom, _)) => {
-                let filename = self.config.filename(chatroom);
-                match self.files.entry(filename) {
-                    Occupied(entry) => Ok(entry.into_mut()),
-                    Vacant(entry) => {
-                        let mut path = self.config.options.export_path.clone();
-                        path.push(self.config.filename(chatroom));
-                        path.set_extension("txt");
-
-                        let file = File::options().append(true).create(true).open(&path)?;
-
-                        Ok(entry.insert(BufWriter::new(file)))
-                    }
-                }
-            }
-            None => Ok(&mut self.orphaned),
-        }
     }
 }
 
