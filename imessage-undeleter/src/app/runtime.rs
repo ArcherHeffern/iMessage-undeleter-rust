@@ -3,36 +3,45 @@
 */
 
 use std::{
-    cmp::min, collections::{BTreeSet, HashMap, HashSet}, fs::{self, create_dir_all, remove_dir_all, remove_file, rename}, path::{Path, PathBuf}, thread, time::Duration
+    cmp::min,
+    collections::{BTreeSet, HashMap, HashSet},
+    fs::{self, create_dir_all, remove_dir_all, remove_file, rename},
+    path::{Path, PathBuf},
+    thread,
+    time::Duration,
 };
 
 use crabapple::Backup;
 use rusqlite::Connection;
 
 use crate::{
+    TXT,
     app::{
         compatibility::{
             attachment_manager::AttachmentManagerMode,
             backup::{decrypt_backup, get_decrypted_message_database},
         },
         error::RuntimeError,
-        options::{Options, OPTION_CLEARTEXT_PASSWORD},
+        options::{OPTION_CLEARTEXT_PASSWORD, Options},
         sanitizers::sanitize_filename,
     },
-    exporters::exporter::ATTACHMENT_NO_FILENAME, TXT,
+    exporters::exporter::ATTACHMENT_NO_FILENAME,
 };
 
 use imessage_database::{
-    message_types::variants::Announcement, tables::{
+    message_types::variants::Announcement,
+    tables::{
         attachment::Attachment,
         chat::Chat,
         chat_handle::ChatToHandle,
         handle::Handle,
         messages::Message,
         table::{
-            get_connection, get_db_size, Cacheable, Deduplicate, Diagnostic, ATTACHMENTS_DIR, ME, ORPHANED, UNKNOWN
+            ATTACHMENTS_DIR, Cacheable, Deduplicate, Diagnostic, ME, ORPHANED, UNKNOWN,
+            get_connection, get_db_size,
         },
-    }, util::{dates::get_offset, platform::Platform, size::format_file_size}
+    },
+    util::{dates::get_offset, platform::Platform, size::format_file_size},
 };
 
 const MAX_LENGTH: usize = 235;
@@ -418,81 +427,170 @@ impl Config {
                 create_dir_all(self.attachment_path())?;
             }
 
-            let attachment_root = self.options.attachment_root.clone().map(PathBuf::from).unwrap_or_else(|| {
-                let mut attachment_path = self.options.export_path.clone();
-                attachment_path.push("attachments");
-                attachment_path
-            });
+            let attachment_root = self
+                .options
+                .attachment_root
+                .clone()
+                .map(PathBuf::from)
+                .unwrap_or_else(|| {
+                    let mut attachment_path = self.options.export_path.clone();
+                    attachment_path.push("attachments");
+                    attachment_path
+                });
             let mut tmp_attachment_root = attachment_root.clone();
             tmp_attachment_root.push("tmp");
             if tmp_attachment_root.is_dir() {
                 remove_dir_all(&tmp_attachment_root)?;
             } else if tmp_attachment_root.exists() {
-                eprintln!("{:?} exists and is not a directory. Aborting.", &tmp_attachment_root);
+                eprintln!(
+                    "{:?} exists and is not a directory. Aborting.",
+                    &tmp_attachment_root
+                );
             }
             create_dir_all(&attachment_root).unwrap();
             create_dir_all(&tmp_attachment_root).unwrap();
-            println!("Attachment root is \'{}\'", attachment_root.to_str().unwrap());
-            println!("Temporary Attachment root is \'{}\'", tmp_attachment_root.to_str().unwrap());
-            let mut last_messages: HashMap<i32, Message> = HashMap::new();
+            let mut last_messages: HashMap<i32, (Message, Vec<String>)> = HashMap::new();
+            let mut min_attachment_number: i32 =
+                self.find_min_attachment_number(&attachment_root)?;
+            println!(
+                "Attachment root is \'{}\'",
+                attachment_root.to_str().unwrap()
+            );
+            println!(
+                "Temporary Attachment root is \'{}\'",
+                tmp_attachment_root.to_str().unwrap()
+            );
+            println!("Min attachment number is {}", min_attachment_number);
             loop {
-                let mut new_messages = TXT::new(self)?.iter_messages()?; // TODO: Filter out messages from self
-                for (msg_id, new_message) in new_messages.iter_mut() {
+                let new_messages = TXT::new(self)?.iter_messages()?; // TODO: Filter out messages from self
+                let mut new_messages_with_attachments: HashMap<i32, (Message, Vec<String>)> =
+                    HashMap::new();
+
+                for (msg_id, mut new_message) in new_messages {
                     let _ = new_message.generate_text(self.db());
-                    if let Some(last_message) = last_messages.get_mut(msg_id) {
+                    let attachments = Attachment::from_message(self.db(), &new_message)?;
+                    let mut attachment_destinations: Vec<String> = Vec::new();
+
+                    // Detect deleted messages
+                    if let Some((last_message, last_message_attachments)) =
+                        last_messages.remove(&msg_id)
+                    {
                         if new_message.is_fully_unsent() && !last_message.is_fully_unsent() {
-                            println!("Deleted message Detected! {}", last_message.text.clone().unwrap_or_default());
-                            let mut attachment_paths: Vec<PathBuf> = Vec::new();
-                            for attachment in Attachment::from_message(self.db(), last_message)?.iter() {
-                                // TODO FIRST: after a message is deleted, all the attachments no longer exist! This data must be persisted :D. This means the following code is not triggering!
-                                if let Some(filename) = attachment.filename() {
-                                    let tmp_attachment_path = tmp_attachment_root.join(filename);
-                                    let attachment_path = attachment_root.join(filename);
-                                    dbg!("Renaming {:?} to {:?}", &tmp_attachment_path, &attachment_path);
-                                    rename(&tmp_attachment_path, &attachment_path)?;
-                                    attachment_paths.push(PathBuf::from(attachment_path));
-                                }
-                            }
-                            // TODO: Write everything to a file!
+                            self.handle_deleted_message(
+                                &last_message,
+                                &last_message_attachments,
+                                &attachment_root,
+                                &tmp_attachment_root,
+                            )?;
                         }
-                        last_messages.remove_entry(msg_id);
+                        attachment_destinations = last_message_attachments;
                     } else {
-                        if new_message.has_attachments() { // TODO: Bug when sending multiple of the same image
-                            // Save the attachments as they come in!
-                            let attachments = Attachment::from_message(self.db(), &new_message)?;
-                            attachments.iter().for_each(|attachment| {
-                                let attachment_source = attachment.resolved_attachment_path(&self.options.platform, &self.options.db_path, self.options.attachment_root.as_ref().map(String::as_str)).unwrap();
-                                let attachment_destination = tmp_attachment_root.join(attachment.filename().unwrap());
-                                fs::copy(attachment_source, attachment_destination).unwrap();
-                            });
+                        // Completely new message
+                        if new_message.has_attachments() {
+                            self.save_attachments_locally(
+                                attachments,
+                                &mut min_attachment_number,
+                                &tmp_attachment_root,
+                                &mut attachment_destinations,
+                            )?;
                         }
                     }
+                    new_messages_with_attachments
+                        .insert(msg_id.clone(), (new_message, attachment_destinations));
                 }
                 // See what old messages no longer exist, and remove any temporary attachments!
-                for (msg_id, old_message) in last_messages {
-                    println!("Message {} is no longer being tracked", msg_id);
-                    if old_message.has_attachments() {
-                        let attachments = Attachment::from_message(self.db(), &old_message)?;
-                        attachments.iter().for_each(|attachment| {
-                            let attachment_path = tmp_attachment_root.join(attachment.filename().unwrap());
-                            if attachment_path.exists() {
-                                fs::remove_file(&attachment_path).expect(&format!("Attachment path {:?} is a valid path", &attachment_path));
-                            }
-                        })
-
-                    }
+                for (msg_id, (_, attachments)) in last_messages {
+                    self.handle_untracked_message(msg_id, &attachments, &tmp_attachment_root);
                 }
 
-                last_messages = new_messages;
-                thread::sleep(Duration::from_millis(2000));
+                last_messages = new_messages_with_attachments;
+                thread::sleep(Duration::from_millis(500));
             }
         }
         println!("Done!");
         Ok(())
     }
 
-    pub fn get_messages(&self) {
+    pub fn find_min_attachment_number(
+        &self,
+        attachment_root: &PathBuf,
+    ) -> Result<i32, RuntimeError> {
+        let mut n = 0;
+        while attachment_root.join(n.to_string()).try_exists()? {
+            n += 1;
+        }
+        return Ok(n);
+    }
 
+    pub fn save_attachments_locally(
+        &self,
+        attachments: Vec<Attachment>,
+        min_attachment_number: &mut i32,
+        tmp_attachment_root: &PathBuf,
+        attachment_destinations: &mut Vec<String>,
+    ) -> Result<(), RuntimeError> {
+        // TODO: Bug when sending multiple of the same image
+        // Save the attachments as they come in!
+        attachments.iter().for_each(|attachment| {
+            let attachment_source = attachment
+                .resolved_attachment_path(
+                    &self.options.platform,
+                    &self.options.db_path,
+                    self.options.attachment_root.as_ref().map(String::as_str),
+                )
+                .unwrap();
+            let attachment_basename = min_attachment_number.to_string();
+            let attachment_destination = tmp_attachment_root.join(&attachment_basename);
+            attachment_destinations.push(attachment_basename);
+            *min_attachment_number += 1;
+            fs::copy(attachment_source, attachment_destination).unwrap();
+        });
+        Ok(())
+    }
+
+    pub fn handle_deleted_message(
+        &self,
+        last_message: &Message,
+        last_message_attachments: &Vec<String>, // Basename
+        attachment_root: &PathBuf,
+        tmp_attachment_root: &PathBuf,
+    ) -> Result<(), RuntimeError> {
+        println!(
+            "Deleted message Detected! {}",
+            last_message.text.clone().unwrap_or_default()
+        );
+        let mut attachment_paths: Vec<PathBuf> = Vec::new();
+        for attachment in last_message_attachments {
+            let tmp_attachment_path = tmp_attachment_root.join(attachment);
+            let attachment_path = attachment_root.join(attachment);
+            dbg!(
+                "Renaming {:?} to {:?}",
+                &tmp_attachment_path,
+                &attachment_path
+            );
+            rename(&tmp_attachment_path, &attachment_path)?;
+            attachment_paths.push(PathBuf::from(attachment_path));
+        }
+        // TODO: Write everything to a file!
+        Ok(())
+    }
+
+    pub fn handle_untracked_message(
+        &self,
+        msg_id: i32,
+        attachments: &Vec<String>,
+        tmp_attachment_root: &PathBuf,
+    ) {
+        println!("Message {} is no longer being tracked", msg_id);
+        attachments.iter().for_each(|attachment| {
+            let attachment_path = tmp_attachment_root.join(attachment);
+            if attachment_path.exists() {
+                fs::remove_file(&attachment_path).expect(&format!(
+                    "Attachment path {:?} is a valid path",
+                    &attachment_path
+                ));
+            }
+        })
     }
 
     /// Determine who sent a message
