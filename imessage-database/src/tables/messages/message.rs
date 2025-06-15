@@ -258,9 +258,9 @@ impl Table for Message {
     /// Convert data from the messages table to native Rust data structures, falling back to
     /// more compatible queries to ensure compatibility with older database schemas
     fn get(db: &Connection) -> Result<Statement, TableError> {
-        db.prepare(&ios_16_newer_query(None))
-            .or_else(|_| db.prepare(&ios_14_15_query(None)))
-            .or_else(|_| db.prepare(&ios_13_older_query(None)))
+        db.prepare(&ios_16_newer_query(None, None))
+            .or_else(|_| db.prepare(&ios_14_15_query(None, None)))
+            .or_else(|_| db.prepare(&ios_13_older_query(None, None)))
             .map_err(TableError::Messages)
     }
 
@@ -742,19 +742,25 @@ impl Message {
                 .join(", ");
 
             if include_recoverable {
-                filters.push_str(&format!("WHERE (c.chat_id IN ({ids}) OR d.chat_id IN ({ids}))"));
+                filters.push_str(&format!(
+                    "WHERE (c.chat_id IN ({ids}) OR d.chat_id IN ({ids}))"
+                ));
             } else {
                 filters.push_str(&format!("WHERE c.chat_id IN ({ids})"));
             }
         }
 
+        filters
+    }
+
+    pub(crate) fn generate_limit_statement(context: &QueryContext) -> String {
+        let mut limit_statement = String::new();
         // limit filter
         if let Some(limit) = context.limit {
-            filters.push_str(&format!(" LIMIT {limit}"));
+            limit_statement.push_str(&format!("LIMIT {limit}"));
         }
 
-
-        filters
+        limit_statement
     }
 
     /// Get the number of messages in the database
@@ -831,18 +837,21 @@ impl Message {
         if !context.has_filters() {
             return Self::get(db);
         }
-        db.prepare(&ios_16_newer_query(Some(&Self::generate_filter_statement(
-            context, true,
-        ))))
+        db.prepare(&ios_16_newer_query(
+            Some(&Self::generate_filter_statement(context, true)),
+            Some(&Self::generate_limit_statement(context)),
+        ))
         .or_else(|_| {
-            db.prepare(&ios_14_15_query(Some(&Self::generate_filter_statement(
-                context, false,
-            ))))
+            db.prepare(&ios_14_15_query(
+                Some(&Self::generate_filter_statement(context, false)),
+                Some(&Self::generate_limit_statement(context)),
+            ))
         })
         .or_else(|_| {
-            db.prepare(&ios_13_older_query(Some(&Self::generate_filter_statement(
-                context, false,
-            ))))
+            db.prepare(&ios_13_older_query(
+                Some(&Self::generate_filter_statement(context, false)),
+                Some(&Self::generate_limit_statement(context)),
+            ))
         })
         .map_err(TableError::Messages)
     }
@@ -884,8 +893,8 @@ impl Message {
 
             // No iOS 13 and prior used here because `thread_originator_guid` is not present in that schema
             let mut statement = db
-                .prepare(&ios_16_newer_query(Some(&filters)))
-                .or_else(|_| db.prepare(&ios_14_15_query(Some(&filters))))
+                .prepare(&ios_16_newer_query(Some(&filters), None))
+                .or_else(|_| db.prepare(&ios_14_15_query(Some(&filters), None)))
                 .map_err(TableError::Messages)?;
 
             let iter = statement
@@ -1180,9 +1189,9 @@ impl Message {
         let filters = format!("WHERE m.guid = \"{guid}\"");
 
         let mut statement = db
-            .prepare(&ios_16_newer_query(Some(&filters)))
-            .or_else(|_| db.prepare(&ios_14_15_query(Some(&filters))))
-            .or_else(|_| db.prepare(&ios_13_older_query(Some(&filters))))
+            .prepare(&ios_16_newer_query(Some(&filters), None))
+            .or_else(|_| db.prepare(&ios_14_15_query(Some(&filters), None)))
+            .or_else(|_| db.prepare(&ios_13_older_query(Some(&filters), None)))
             .map_err(TableError::Messages)?;
 
         Message::extract(statement.query_row([], |row| Ok(Message::from_row(row))))

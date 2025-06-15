@@ -18,7 +18,7 @@ mod exclude_recoverable_tests {
         context.set_limit(10);
 
         let statement = Message::generate_filter_statement(&context, false);
-        assert_eq!(statement, " LIMIT 10");
+        assert_eq!(statement, "");
     }
 
     #[test]
@@ -39,7 +39,7 @@ mod exclude_recoverable_tests {
         let statement = Message::generate_filter_statement(&context, false);
         assert_eq!(
             statement,
-            "WHERE c.chat_id IN (1, 2, 3) LIMIT 10"
+            "WHERE c.chat_id IN (1, 2, 3)"
         );
     }
 
@@ -73,7 +73,7 @@ mod include_recoverable_tests {
         context.set_limit(10);
 
         let statement = Message::generate_filter_statement(&context, true);
-        assert_eq!(statement, " LIMIT 10");
+        assert_eq!(statement, "");
     }
 
     #[test]
@@ -97,7 +97,7 @@ mod include_recoverable_tests {
         let statement = Message::generate_filter_statement(&context, true);
         assert_eq!(
             statement,
-            "WHERE (c.chat_id IN (1, 2, 3) OR d.chat_id IN (1, 2, 3)) LIMIT 10"
+            "WHERE (c.chat_id IN (1, 2, 3) OR d.chat_id IN (1, 2, 3))"
         );
     }
 }
@@ -173,7 +173,7 @@ mod query_string_tests {
 
     #[test]
     fn can_generate_no_filters_16() {
-        let query_string = query_parts::ios_16_newer_query(None);
+        let query_string = query_parts::ios_16_newer_query(None, Some("LIMIT 10"));
         let expected = "\nSELECT
     rowid, guid, text, service, handle_id, destination_caller_id, subject, date, date_read, date_delivered, is_from_me, is_read, item_type, other_handle, share_status, share_direction, group_title, group_action_type, associated_message_guid, associated_message_type, balloon_bundle_id, expressive_send_style_id, thread_originator_guid, thread_originator_part, date_edited, associated_message_emoji,
     c.chat_id,
@@ -186,13 +186,14 @@ LEFT JOIN chat_message_join as c ON m.ROWID = c.message_id
 LEFT JOIN chat_recoverable_message_join as d ON m.ROWID = d.message_id
 
 ORDER BY
-    m.date;\n";
+    m.date
+LIMIT 10;"; 
         assert_eq!(query_string, expected);
     }
 
     #[test]
     fn can_generate_filters_16() {
-        let query_string = query_parts::ios_16_newer_query(Some("WHERE m.guid = \"fake\""));
+        let query_string = query_parts::ios_16_newer_query(Some("WHERE m.guid = \"fake\""), Some("LIMIT 10"));
         let expected = "\nSELECT
     rowid, guid, text, service, handle_id, destination_caller_id, subject, date, date_read, date_delivered, is_from_me, is_read, item_type, other_handle, share_status, share_direction, group_title, group_action_type, associated_message_guid, associated_message_type, balloon_bundle_id, expressive_send_style_id, thread_originator_guid, thread_originator_part, date_edited, associated_message_emoji,
     c.chat_id,
@@ -205,13 +206,14 @@ LEFT JOIN chat_message_join as c ON m.ROWID = c.message_id
 LEFT JOIN chat_recoverable_message_join as d ON m.ROWID = d.message_id
 WHERE m.guid = \"fake\"
 ORDER BY
-    m.date;\n";
+    m.date
+LIMIT 10;";
         assert_eq!(query_string, expected);
     }
 
     #[test]
     fn can_generate_no_filters_14_15() {
-        let query_string = query_parts::ios_14_15_query(None);
+        let query_string = query_parts::ios_14_15_query(None, None);
         let expected = "\nSELECT
     *,
     c.chat_id,
@@ -223,14 +225,15 @@ FROM
 LEFT JOIN chat_message_join as c ON m.ROWID = c.message_id
 
 ORDER BY
-    m.date;\n";
+    m.date
+;";
         println!("{query_string}");
         assert_eq!(query_string, expected);
     }
 
     #[test]
     fn can_generate_filters_14_15() {
-        let query_string = query_parts::ios_14_15_query(Some("WHERE m.guid = \"fake\""));
+        let query_string = query_parts::ios_14_15_query(Some("WHERE m.guid = \"fake\""), Some("LIMIT 10"));
         let expected = "\nSELECT
     *,
     c.chat_id,
@@ -242,13 +245,14 @@ FROM
 LEFT JOIN chat_message_join as c ON m.ROWID = c.message_id
 WHERE m.guid = \"fake\"
 ORDER BY
-    m.date;\n";
+    m.date
+LIMIT 10;";
         assert_eq!(query_string, expected);
     }
 
     #[test]
     fn can_generate_no_filters_13() {
-        let query_string = query_parts::ios_13_older_query(None);
+        let query_string = query_parts::ios_13_older_query(None, Some("LIMIT 10"));
         let expected = "\nSELECT
     *,
     c.chat_id,
@@ -260,14 +264,15 @@ FROM
 LEFT JOIN chat_message_join as c ON m.ROWID = c.message_id
 
 ORDER BY
-    m.date;\n";
+    m.date
+LIMIT 10;";
         println!("{query_string}");
         assert_eq!(query_string, expected);
     }
 
     #[test]
     fn can_generate_filters_13() {
-        let query_string = query_parts::ios_13_older_query(Some("WHERE m.guid = \"fake\""));
+        let query_string = query_parts::ios_13_older_query(Some("WHERE m.guid = \"fake\""), Some("LIMIT 10"));
         let expected = "\nSELECT
     *,
     c.chat_id,
@@ -279,7 +284,8 @@ FROM
 LEFT JOIN chat_message_join as c ON m.ROWID = c.message_id
 WHERE m.guid = \"fake\"
 ORDER BY
-    m.date;\n";
+    m.date
+LIMIT 10;";
         assert_eq!(query_string, expected);
     }
 }

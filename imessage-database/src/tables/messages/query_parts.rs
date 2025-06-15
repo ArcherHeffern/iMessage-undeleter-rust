@@ -60,35 +60,38 @@ LEFT JOIN {CHAT_MESSAGE_JOIN} as c ON m.ROWID = c.message_id
 
 const ORDER_BY: &str = "
 ORDER BY
-    m.date;
+    m.date
 ";
 
 /// Generate a SQL Query compatible with the macOS Ventura+ and i0S 16+ schema
-pub(crate) fn ios_16_newer_query(filters: Option<&str>) -> String {
+pub(crate) fn ios_16_newer_query(filters: Option<&str>, limit: Option<&str>) -> String {
     format!(
-        "{}{}{}",
+        "{}{}{}{};",
         *IOS_16_NEWER_HEAD,
         filters.unwrap_or_default(),
-        ORDER_BY
+        ORDER_BY,
+        limit.unwrap_or_default()
     )
 }
 
 /// Generate a SQL Query compatible with the macOS Big Sur to Monterey, iOS 14 to iOS 15 schema
-pub(crate) fn ios_14_15_query(filters: Option<&str>) -> String {
+pub(crate) fn ios_14_15_query(filters: Option<&str>, limit: Option<&str>) -> String {
     format!(
-        "{}{}{}",
+        "{}{}{}{};",
         *IOS_14_15_HEAD,
         filters.unwrap_or_default(),
-        ORDER_BY
+        ORDER_BY,
+        limit.unwrap_or_default()
     )
 }
 
 /// Generate a SQL Query compatible with the macOS Catalina, iOS 13 and older schema
-pub(crate) fn ios_13_older_query(filters: Option<&str>) -> String {
+pub(crate) fn ios_13_older_query(filters: Option<&str>, limit: Option<&str>) -> String {
     format!(
-        "{}{}{}",
+        "{}{}{}{};",
         *IOS_13_OLDER_HEAD,
         filters.unwrap_or_default(),
-        ORDER_BY
+        ORDER_BY,
+        limit.unwrap_or_default()
     )
 }
