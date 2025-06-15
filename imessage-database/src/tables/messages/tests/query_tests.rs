@@ -186,7 +186,7 @@ LEFT JOIN chat_message_join as c ON m.ROWID = c.message_id
 LEFT JOIN chat_recoverable_message_join as d ON m.ROWID = d.message_id
 
 ORDER BY
-    m.date
+    m.date DESC
 LIMIT 10;"; 
         assert_eq!(query_string, expected);
     }
@@ -206,7 +206,7 @@ LEFT JOIN chat_message_join as c ON m.ROWID = c.message_id
 LEFT JOIN chat_recoverable_message_join as d ON m.ROWID = d.message_id
 WHERE m.guid = \"fake\"
 ORDER BY
-    m.date
+    m.date DESC
 LIMIT 10;";
         assert_eq!(query_string, expected);
     }
@@ -225,7 +225,7 @@ FROM
 LEFT JOIN chat_message_join as c ON m.ROWID = c.message_id
 
 ORDER BY
-    m.date
+    m.date DESC
 ;";
         println!("{query_string}");
         assert_eq!(query_string, expected);
@@ -245,7 +245,7 @@ FROM
 LEFT JOIN chat_message_join as c ON m.ROWID = c.message_id
 WHERE m.guid = \"fake\"
 ORDER BY
-    m.date
+    m.date DESC
 LIMIT 10;";
         assert_eq!(query_string, expected);
     }
@@ -264,7 +264,7 @@ FROM
 LEFT JOIN chat_message_join as c ON m.ROWID = c.message_id
 
 ORDER BY
-    m.date
+    m.date DESC
 LIMIT 10;";
         println!("{query_string}");
         assert_eq!(query_string, expected);
@@ -284,7 +284,7 @@ FROM
 LEFT JOIN chat_message_join as c ON m.ROWID = c.message_id
 WHERE m.guid = \"fake\"
 ORDER BY
-    m.date
+    m.date DESC
 LIMIT 10;";
         assert_eq!(query_string, expected);
     }
