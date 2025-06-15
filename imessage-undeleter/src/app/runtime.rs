@@ -3,10 +3,7 @@
 */
 
 use std::{
-    cmp::min,
-    collections::{BTreeSet, HashMap, HashSet},
-    fs::{create_dir_all, remove_file},
-    path::{Path, PathBuf},
+    cmp::min, collections::{BTreeSet, HashMap, HashSet}, fs::{create_dir_all, remove_file}, path::{Path, PathBuf}, thread, time::Duration
 };
 
 use crabapple::Backup;
@@ -423,8 +420,12 @@ impl Config {
                 create_dir_all(self.attachment_path())?;
             }
 
-            for mut message in TXT::new(self)?.iter_messages()? {
-                println!("{}", message.generate_text(self.db()).unwrap())
+            loop {
+                for mut message in TXT::new(self)?.iter_messages()? {
+                    println!("{}", message.generate_text(self.db()).unwrap())
+                }
+
+                thread::sleep(Duration::from_secs(2));
             }
         }
         println!("Done!");

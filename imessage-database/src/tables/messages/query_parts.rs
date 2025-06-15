@@ -60,7 +60,7 @@ LEFT JOIN {CHAT_MESSAGE_JOIN} as c ON m.ROWID = c.message_id
 
 const ORDER_BY: &str = "
 ORDER BY
-    m.date
+    m.date DESC
 ";
 
 /// Generate a SQL Query compatible with the macOS Ventura+ and i0S 16+ schema
