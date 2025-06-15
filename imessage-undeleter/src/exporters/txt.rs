@@ -73,7 +73,7 @@ impl<'a> TXT<'a> {
         })
     }
 
-    pub fn iter_messages(&mut self) -> Result<Vec<Message>, RuntimeError> {
+    pub fn iter_messages(&mut self) -> Result<HashMap<i32, Message>, RuntimeError> {
         // Keep track of current message ROWID
         let mut current_message_row = -1;
 
@@ -84,7 +84,7 @@ impl<'a> TXT<'a> {
             .query_map([], |row| Ok(Message::from_row(row)))
             .map_err(|err| RuntimeError::DatabaseError(TableError::Messages(err)))?;
 
-        let mut msgs: Vec<Message> = vec![];
+        let mut msgs: HashMap<i32, Message> = HashMap::new();
         for message in messages {
             let msg = Message::extract(message)?;
 
@@ -94,23 +94,7 @@ impl<'a> TXT<'a> {
                 continue;
             }
             current_message_row = msg.rowid;
-            msgs.push(msg);
-
-            /*
-            // Generate the text of the message
-            let _ = msg.generate_text(self.config.db());
-
-            // Render the announcement in-line
-            if msg.is_announcement() {
-                let announcement = self.format_announcement(&msg);
-                TXT::write_to_file(self.get_or_create_file(&msg)?, &announcement)?;
-            }
-            // Message replies and tapbacks are rendered in context, so no need to render them separately
-            else if !msg.is_tapback() {
-                let message = self.format_message(&msg, 0)?;
-                TXT::write_to_file(self.get_or_create_file(&msg)?, &message)?;
-            }
-            */
+            msgs.insert(msg.rowid, msg).map(|o|println!("{}", o.rowid));
         }
         Ok(msgs)
     }

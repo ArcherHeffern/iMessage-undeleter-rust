@@ -3,7 +3,7 @@
 */
 
 use std::{
-    cmp::min, collections::{BTreeSet, HashMap, HashSet}, fs::{create_dir_all, remove_file}, path::{Path, PathBuf}, thread, time::Duration
+    cmp::min, collections::{BTreeSet, HashMap, HashSet}, fs::{self, create_dir_all, remove_dir_all, remove_file, rename}, path::{Path, PathBuf}, thread, time::Duration
 };
 
 use crabapple::Backup;
@@ -23,18 +23,16 @@ use crate::{
 };
 
 use imessage_database::{
-    tables::{
+    message_types::variants::Announcement, tables::{
         attachment::Attachment,
         chat::Chat,
         chat_handle::ChatToHandle,
         handle::Handle,
         messages::Message,
         table::{
-            ATTACHMENTS_DIR, Cacheable, Deduplicate, Diagnostic, ME, ORPHANED, UNKNOWN,
-            get_connection, get_db_size,
+            get_connection, get_db_size, Cacheable, Deduplicate, Diagnostic, ATTACHMENTS_DIR, ME, ORPHANED, UNKNOWN
         },
-    },
-    util::{dates::get_offset, platform::Platform, size::format_file_size},
+    }, util::{dates::get_offset, platform::Platform, size::format_file_size}
 };
 
 const MAX_LENGTH: usize = 235;
@@ -420,12 +418,73 @@ impl Config {
                 create_dir_all(self.attachment_path())?;
             }
 
+            let attachment_root = self.options.attachment_root.clone().map(PathBuf::from).unwrap_or_else(|| {
+                let mut attachment_path = self.options.export_path.clone();
+                attachment_path.push("attachments");
+                attachment_path
+            });
+            let mut tmp_attachment_root = attachment_root.clone();
+            tmp_attachment_root.push("tmp");
+            if tmp_attachment_root.is_dir() {
+                remove_dir_all(&tmp_attachment_root)?;
+            } else if tmp_attachment_root.exists() {
+                eprintln!("{:?} exists and is not a directory. Aborting.", &tmp_attachment_root);
+            }
+            create_dir_all(&attachment_root).unwrap();
+            create_dir_all(&tmp_attachment_root).unwrap();
+            println!("Attachment root is \'{}\'", attachment_root.to_str().unwrap());
+            println!("Temporary Attachment root is \'{}\'", tmp_attachment_root.to_str().unwrap());
+            let mut last_messages: HashMap<i32, Message> = HashMap::new();
             loop {
-                for mut message in TXT::new(self)?.iter_messages()? {
-                    println!("{}", message.generate_text(self.db()).unwrap())
+                let mut new_messages = TXT::new(self)?.iter_messages()?; // TODO: Filter out messages from self
+                for (msg_id, new_message) in new_messages.iter_mut() {
+                    let _ = new_message.generate_text(self.db());
+                    if let Some(last_message) = last_messages.get_mut(msg_id) {
+                        if new_message.is_fully_unsent() && !last_message.is_fully_unsent() {
+                            println!("Deleted message Detected! {}", last_message.text.clone().unwrap_or_default());
+                            let mut attachment_paths: Vec<PathBuf> = Vec::new();
+                            for attachment in Attachment::from_message(self.db(), last_message)?.iter() {
+                                // TODO FIRST: after a message is deleted, all the attachments no longer exist! This data must be persisted :D. This means the following code is not triggering!
+                                if let Some(filename) = attachment.filename() {
+                                    let tmp_attachment_path = tmp_attachment_root.join(filename);
+                                    let attachment_path = attachment_root.join(filename);
+                                    dbg!("Renaming {:?} to {:?}", &tmp_attachment_path, &attachment_path);
+                                    rename(&tmp_attachment_path, &attachment_path)?;
+                                    attachment_paths.push(PathBuf::from(attachment_path));
+                                }
+                            }
+                            // TODO: Write everything to a file!
+                        }
+                        last_messages.remove_entry(msg_id);
+                    } else {
+                        if new_message.has_attachments() { // TODO: Bug when sending multiple of the same image
+                            // Save the attachments as they come in!
+                            let attachments = Attachment::from_message(self.db(), &new_message)?;
+                            attachments.iter().for_each(|attachment| {
+                                let attachment_source = attachment.resolved_attachment_path(&self.options.platform, &self.options.db_path, self.options.attachment_root.as_ref().map(String::as_str)).unwrap();
+                                let attachment_destination = tmp_attachment_root.join(attachment.filename().unwrap());
+                                fs::copy(attachment_source, attachment_destination).unwrap();
+                            });
+                        }
+                    }
+                }
+                // See what old messages no longer exist, and remove any temporary attachments!
+                for (msg_id, old_message) in last_messages {
+                    println!("Message {} is no longer being tracked", msg_id);
+                    if old_message.has_attachments() {
+                        let attachments = Attachment::from_message(self.db(), &old_message)?;
+                        attachments.iter().for_each(|attachment| {
+                            let attachment_path = tmp_attachment_root.join(attachment.filename().unwrap());
+                            if attachment_path.exists() {
+                                fs::remove_file(&attachment_path).expect(&format!("Attachment path {:?} is a valid path", &attachment_path));
+                            }
+                        })
+
+                    }
                 }
 
-                thread::sleep(Duration::from_secs(2));
+                last_messages = new_messages;
+                thread::sleep(Duration::from_millis(2000));
             }
         }
         println!("Done!");
