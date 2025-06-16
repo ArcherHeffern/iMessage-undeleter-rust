@@ -21,7 +21,7 @@ use crate::app::{
 };
 
 /// Default export directory name
-pub const DEFAULT_OUTPUT_DIR: &str = "imessage_export";
+pub const DEFAULT_OUTPUT_DIR: &str = "undeleted_messages";
 
 // CLI Arg Names
 pub const OPTION_DB_PATH: &str = "db-path";
@@ -175,7 +175,7 @@ impl Options {
         };
 
         // Validate the provided export path
-        let export_path = PathBuf::from(user_export_path.unwrap_or(&format!("{}/{DEFAULT_OUTPUT_DIR}", home())));
+        let export_path = PathBuf::from(user_export_path.unwrap_or(&format!("./{DEFAULT_OUTPUT_DIR}")));
 
         Ok(Options {
             db_path,
