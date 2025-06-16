@@ -37,11 +37,9 @@ use imessage_database::{
         handle::Handle,
         messages::Message,
         table::{
-            ATTACHMENTS_DIR, Cacheable, Deduplicate, Diagnostic, ME, ORPHANED, UNKNOWN,
-            get_connection, get_db_size,
+            get_connection, get_db_size, Cacheable, Deduplicate, Diagnostic, ATTACHMENTS_DIR, ME, ORPHANED, UNKNOWN
         },
-    },
-    util::{dates::get_offset, platform::Platform, size::format_file_size},
+    }, util::{dates::get_offset, platform::Platform, size::format_file_size}
 };
 
 const MAX_LENGTH: usize = 235;
@@ -451,7 +449,7 @@ impl Config {
             create_dir_all(&tmp_attachment_root).unwrap();
             let mut last_messages: HashMap<i32, (Message, Vec<String>)> = HashMap::new();
             let mut min_attachment_number: i32 =
-                self.find_min_attachment_number(&attachment_root)?;
+                self.find_min_attachment_number(0, &attachment_root)?;
             println!(
                 "Attachment root is \'{}\'",
                 attachment_root.to_str().unwrap()
@@ -499,6 +497,7 @@ impl Config {
                                 attachments,
                                 &mut min_attachment_number,
                                 &tmp_attachment_root,
+                                &attachment_root,
                                 &mut attachment_destinations,
                             )?;
                         }
@@ -521,9 +520,10 @@ impl Config {
 
     pub fn find_min_attachment_number(
         &self,
+        start: i32, 
         attachment_root: &PathBuf,
     ) -> Result<i32, RuntimeError> {
-        let mut n = 0;
+        let mut n = start;
         while attachment_root.join(n.to_string()).try_exists()? {
             n += 1;
         }
@@ -535,9 +535,9 @@ impl Config {
         attachments: Vec<Attachment>,
         min_attachment_number: &mut i32,
         tmp_attachment_root: &PathBuf,
+        attachment_root: &PathBuf,
         attachment_destinations: &mut Vec<String>,
     ) -> Result<(), RuntimeError> {
-        // TODO: Bug when sending multiple of the same image
         // Save the attachments as they come in!
         attachments.iter().for_each(|attachment| {
             let attachment_source = attachment
@@ -550,8 +550,8 @@ impl Config {
             let attachment_basename = min_attachment_number.to_string();
             let attachment_destination = tmp_attachment_root.join(&attachment_basename);
             attachment_destinations.push(attachment_basename);
-            *min_attachment_number += 1;
             fs::copy(attachment_source, attachment_destination).unwrap();
+            *min_attachment_number = self.find_min_attachment_number(*min_attachment_number+1, attachment_root).unwrap();
         });
         Ok(())
     }
