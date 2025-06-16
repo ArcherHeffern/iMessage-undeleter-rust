@@ -1,22 +1,17 @@
 # imessage-undeleter
+Tracks your iMessage database and logs messages which have been deleted and what they are
 
-### Supported Features
+## Credits
+This project heavily relied on ReagentX's [imessage-exporter](https://github.com/ReagentX/imessage-exporter). I made some modifications to the imessage-database library to support limiting message results, and I used imessage-exporter to guide my imessage-undeleter code.
 
-This crate supports every iMessage feature as of macOS 15.5 (24F74) and iOS 18.5 (22F75):
+Much of the old code in imessage-exporter still exists, I just don't really care to clean things up right now. This isn't prod. 
 
-- iMessage, RCS, SMS, and MMS
-- Multi-part messages
-- Replies/Threads
-- Formatted text
-- Attachments
-- Expressives
-- Tapbacks
-- Stickers
-- Apple Pay
-- Group chats
-- Digital Touch
-- URL Previews
-- Audio messages
-- App Integrations
-- Edited messages
-- Handwritten messages
+## Usage
+```bash
+run -- -t "phone_number" -n "how many messages back to check"
+```
+
+This will create a directory in your working directory called undeleted_messages.
+
+## Improvements Over Previous Python Version
+Since this uses the imessage-database library, the reverse engineering is far less scuffed, and we can access more features than just text. Most notibly, we keep track of attachments which were deleted.

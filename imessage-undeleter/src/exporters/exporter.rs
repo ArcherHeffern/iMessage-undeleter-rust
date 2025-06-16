@@ -1,4 +1,4 @@
-use std::{borrow::Cow, fs::File, io::BufWriter, marker::Sized};
+use std::{borrow::Cow, fs::File, io::BufWriter};
 
 use imessage_database::{
     error::{plist::PlistParseError, table::TableError},

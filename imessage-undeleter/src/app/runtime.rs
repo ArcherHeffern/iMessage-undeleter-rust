@@ -6,7 +6,7 @@ use std::{
     cmp::min,
     collections::{BTreeSet, HashMap, HashSet},
     fs::{self, create_dir_all, remove_dir_all, remove_file, rename, File, OpenOptions},
-    io::{BufWriter, Write},
+    io::Write,
     path::{Path, PathBuf},
     thread,
     time::Duration,
@@ -30,7 +30,6 @@ use crate::{
 };
 
 use imessage_database::{
-    message_types::variants::Announcement,
     tables::{
         attachment::Attachment,
         chat::Chat,
