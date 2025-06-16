@@ -54,8 +54,6 @@ pub struct TXT<'a> {
     /// Handles to files we want to write messages to
     /// Map of resolved chatroom file location to a buffered writer
     pub files: HashMap<String, BufWriter<File>>,
-    /// Writer instance for orphaned messages
-    pub orphaned: BufWriter<File>,
 }
 
 impl<'a> TXT<'a> {
@@ -64,12 +62,9 @@ impl<'a> TXT<'a> {
         orphaned.push(ORPHANED);
         orphaned.set_extension("txt");
 
-        let file = File::options().append(true).create(true).open(&orphaned)?;
-
         Ok(TXT {
             config,
             files: HashMap::new(),
-            orphaned: BufWriter::new(file),
         })
     }
 
@@ -1015,7 +1010,7 @@ impl<'a> BalloonFormatter<&'a str> for TXT<'a> {
 }
 
 impl TXT<'_> {
-    fn get_time(&self, message: &Message) -> String {
+    pub fn get_time(&self, message: &Message) -> String {
         let mut date = format(&message.date(&self.config.offset));
         let read_after = message.time_until_read(&self.config.offset);
         if let Some(time) = read_after {

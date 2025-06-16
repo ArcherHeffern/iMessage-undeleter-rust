@@ -5,7 +5,8 @@
 use std::{
     cmp::min,
     collections::{BTreeSet, HashMap, HashSet},
-    fs::{self, create_dir_all, remove_dir_all, remove_file, rename},
+    fs::{self, create_dir_all, remove_dir_all, remove_file, rename, File, OpenOptions},
+    io::{BufWriter, Write},
     path::{Path, PathBuf},
     thread,
     time::Duration,
@@ -461,8 +462,14 @@ impl Config {
                 tmp_attachment_root.to_str().unwrap()
             );
             println!("Min attachment number is {}", min_attachment_number);
+            let mut outfile = OpenOptions::new()
+                .write(true)
+                .append(true)
+                .create(true)
+                .open(&self.options.export_path.join("LOGFILE"))?;
+            let mut txt_instance = TXT::new(self)?;
             loop {
-                let new_messages = TXT::new(self)?.iter_messages()?; // TODO: Filter out messages from self
+                let new_messages = txt_instance.iter_messages()?; // TODO: Filter out messages from self
                 let mut new_messages_with_attachments: HashMap<i32, (Message, Vec<String>)> =
                     HashMap::new();
 
@@ -481,6 +488,8 @@ impl Config {
                                 &last_message_attachments,
                                 &attachment_root,
                                 &tmp_attachment_root,
+                                &mut outfile,
+                                &txt_instance,
                             )?;
                         }
                         attachment_destinations = last_message_attachments;
@@ -554,16 +563,19 @@ impl Config {
         last_message_attachments: &Vec<String>, // Basename
         attachment_root: &PathBuf,
         tmp_attachment_root: &PathBuf,
+        outfile: &mut File,
+        txt_instance: &TXT,
     ) -> Result<(), RuntimeError> {
         println!(
-            "Deleted message Detected! {}",
-            last_message.text.clone().unwrap_or_default()
+            "Deleted message Detected! \"{}\" with {} attachments.",
+            last_message.text.clone().unwrap_or_default(),
+            last_message.num_attachments,
         );
         let mut attachment_paths: Vec<PathBuf> = Vec::new();
         for attachment in last_message_attachments {
             let tmp_attachment_path = tmp_attachment_root.join(attachment);
             let attachment_path = attachment_root.join(attachment);
-            dbg!(
+            println!(
                 "Renaming {:?} to {:?}",
                 &tmp_attachment_path,
                 &attachment_path
@@ -572,6 +584,24 @@ impl Config {
             attachment_paths.push(PathBuf::from(attachment_path));
         }
         // TODO: Write everything to a file!
+        let sender = self.who(
+            last_message.handle_id,
+            last_message.is_from_me(),
+            &last_message.destination_caller_id,
+        );
+        writeln!(
+            outfile,
+            "==={}:{}",
+            sender,
+            txt_instance.get_time(last_message)
+        )?;
+        if let Some(text) = &last_message.text {
+            writeln!(outfile, "Text: {}", text)?;
+        }
+        writeln!(outfile, "Attachments:")?;
+        for last_message_attachment in last_message_attachments {
+            writeln!(outfile, "{}", attachment_root.join(last_message_attachment).into_os_string().into_string().unwrap_or("?".to_string()))?;
+        }
         Ok(())
     }
 
