@@ -26,7 +26,6 @@ pub const DEFAULT_OUTPUT_DIR: &str = "undeleted_messages";
 // CLI Arg Names
 pub const OPTION_DB_PATH: &str = "db-path";
 pub const OPTION_ATTACHMENT_ROOT: &str = "attachment-root";
-pub const OPTION_DIAGNOSTIC: &str = "diagnostics";
 pub const OPTION_EXPORT_PATH: &str = "export-path";
 pub const OPTION_CHECK_LAST_N_MESSAGES: &str = "check-last-n";
 pub const OPTION_DISABLE_LAZY_LOADING: &str = "no-lazy";
@@ -37,9 +36,7 @@ pub const OPTION_CONVERSATION_FILTER: &str = "conversation-filter";
 pub const OPTION_CLEARTEXT_PASSWORD: &str = "cleartext-password";
 
 // Other CLI Text
-pub const SUPPORTED_FILE_TYPES: &str = "txt, html";
 pub const SUPPORTED_PLATFORMS: &str = "macOS, iOS";
-pub const SUPPORTED_ATTACHMENT_MANAGER_MODES: &str = "clone, basic, full, disabled";
 pub const ABOUT: &str = concat!(
     "The `imessage-undeleter` binary watches iMessage conversations for deleted messages.\n",
     "It can also run diagnostics\n",
@@ -54,8 +51,6 @@ pub struct Options {
     pub attachment_root: Option<String>,
     /// The attachment manager type used to copy files
     pub attachment_manager: AttachmentManager,
-    /// If true, emit diagnostic information to stdout
-    pub diagnostic: bool,
     /// Where the app will save exported data
     pub export_path: PathBuf,
     /// Query context describing SQL query filters
@@ -78,7 +73,6 @@ impl Options {
     pub fn from_args(args: &ArgMatches) -> Result<Self, RuntimeError> {
         let user_path: Option<&String> = args.get_one(OPTION_DB_PATH);
         let attachment_root: Option<&String> = args.get_one(OPTION_ATTACHMENT_ROOT);
-        let diagnostic = args.get_flag(OPTION_DIAGNOSTIC);
         let user_export_path: Option<&String> = args.get_one(OPTION_EXPORT_PATH);
         let check_last_n_messages_string: Option<&String> = args.get_one(OPTION_CHECK_LAST_N_MESSAGES);
         let no_lazy = args.get_flag(OPTION_DISABLE_LAZY_LOADING);
@@ -89,23 +83,6 @@ impl Options {
         let cleartext_password: Option<&String> = args.get_one(OPTION_CLEARTEXT_PASSWORD);
 
         let check_last_n_messages: Option<i32> = check_last_n_messages_string.map(|s| s.parse::<i32>().ok()).flatten();
-
-        // During `diagnostics`, none of these may be set
-        let diag_conflicts = [
-            (user_export_path.is_some(), OPTION_EXPORT_PATH),
-            (no_lazy, OPTION_DISABLE_LAZY_LOADING),
-            (check_last_n_messages.is_some(), OPTION_CHECK_LAST_N_MESSAGES),
-            (use_caller_id, OPTION_USE_CALLER_ID),
-            (custom_name.is_some(), OPTION_CUSTOM_NAME),
-            (conversation_filter.is_some(), OPTION_CONVERSATION_FILTER),
-        ];
-        for (set, opt) in diag_conflicts {
-            if diagnostic && set {
-                return Err(RuntimeError::InvalidOptions(format!(
-                    "Diagnostics are enabled; `{opt}` is disallowed"
-                )));
-            }
-        }
 
         // Prevent custom_name vs. use_caller_id collision
         if custom_name.is_some() && use_caller_id {
@@ -171,7 +148,6 @@ impl Options {
             db_path,
             attachment_root: attachment_root.cloned(),
             attachment_manager: AttachmentManager::from(attachment_manager_mode),
-            diagnostic,
             export_path,
             query_context,
             no_lazy,
@@ -202,14 +178,6 @@ fn get_command() -> Command {
         .version(crate_version!())
         .about(ABOUT)
         .arg_required_else_help(true)
-        .arg(
-            Arg::new(OPTION_DIAGNOSTIC)
-            .short('d')
-            .long(OPTION_DIAGNOSTIC)
-            .help("Print diagnostic information and exit\n")
-            .action(ArgAction::SetTrue)
-            .display_order(0),
-        )
         .arg(
             Arg::new(OPTION_CHECK_LAST_N_MESSAGES)
                 .short('n')

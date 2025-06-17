@@ -53,28 +53,6 @@ impl AttachmentManager {
 }
 
 impl AttachmentManager {
-    pub(crate) fn diagnostic(&self) {
-        println!("Detected converters:");
-
-        if let Some(converter) = &self.image_converter {
-            println!("    Image converter: {converter}");
-        } else {
-            println!("    Image converter: None");
-        }
-
-        if let Some(converter) = &self.audio_converter {
-            println!("    Audio converter: {converter}");
-        } else {
-            println!("    Audio converter: None");
-        }
-
-        if let Some(converter) = &self.video_converter {
-            println!("    Video converter: {converter}");
-        } else {
-            println!("    Video converter: None");
-        }
-    }
-
     /// Handle a handwriting message, optionally writing it to an SVG file
     pub fn handle_handwriting(
         &self,
