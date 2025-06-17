@@ -3,12 +3,6 @@
 */
 use std::collections::BTreeSet;
 
-use chrono::prelude::*;
-
-use crate::{
-    util::dates::{TIMESTAMP_FACTOR, get_offset},
-};
-
 #[derive(Debug, Default, PartialEq, Eq)]
 /// Represents filter configurations for a SQL query.
 pub struct QueryContext {

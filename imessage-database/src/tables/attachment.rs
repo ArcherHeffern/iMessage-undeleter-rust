@@ -20,7 +20,6 @@ use crate::{
         table::{ATTACHMENT, ATTRIBUTION_INFO, GetBlob, STICKER_USER_INFO, Table},
     },
     util::{
-        dates::TIMESTAMP_FACTOR,
         dirs::home,
         output::{done_processing, processing},
         platform::Platform,

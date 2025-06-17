@@ -28,7 +28,6 @@ pub const OPTION_DB_PATH: &str = "db-path";
 pub const OPTION_ATTACHMENT_ROOT: &str = "attachment-root";
 pub const OPTION_EXPORT_PATH: &str = "export-path";
 pub const OPTION_CHECK_LAST_N_MESSAGES: &str = "check-last-n";
-pub const OPTION_DISABLE_LAZY_LOADING: &str = "no-lazy";
 pub const OPTION_CUSTOM_NAME: &str = "custom-name";
 pub const OPTION_PLATFORM: &str = "platform";
 pub const OPTION_USE_CALLER_ID: &str = "use-caller-id";
@@ -37,11 +36,7 @@ pub const OPTION_CLEARTEXT_PASSWORD: &str = "cleartext-password";
 
 // Other CLI Text
 pub const SUPPORTED_PLATFORMS: &str = "macOS, iOS";
-pub const ABOUT: &str = concat!(
-    "The `imessage-undeleter` binary watches iMessage conversations for deleted messages.\n",
-    "It can also run diagnostics\n",
-    "to find problems with the iMessage database."
-);
+pub const ABOUT: &str = "The `imessage-undeleter` binary watches iMessage conversations for deleted messages.\n";
 
 #[derive(Debug, PartialEq, Eq)]
 pub struct Options {
@@ -55,8 +50,6 @@ pub struct Options {
     pub export_path: PathBuf,
     /// Query context describing SQL query filters
     pub query_context: QueryContext,
-    /// If true, do not include `loading="lazy"` in HTML exports
-    pub no_lazy: bool,
     /// Custom name for database owner in output
     pub custom_name: Option<String>,
     /// If true, use the database owner's caller ID instead of "Me"
@@ -75,7 +68,6 @@ impl Options {
         let attachment_root: Option<&String> = args.get_one(OPTION_ATTACHMENT_ROOT);
         let user_export_path: Option<&String> = args.get_one(OPTION_EXPORT_PATH);
         let check_last_n_messages_string: Option<&String> = args.get_one(OPTION_CHECK_LAST_N_MESSAGES);
-        let no_lazy = args.get_flag(OPTION_DISABLE_LAZY_LOADING);
         let custom_name: Option<&String> = args.get_one(OPTION_CUSTOM_NAME);
         let use_caller_id = args.get_flag(OPTION_USE_CALLER_ID);
         let platform_type: Option<&String> = args.get_one(OPTION_PLATFORM);
@@ -150,7 +142,6 @@ impl Options {
             attachment_manager: AttachmentManager::from(attachment_manager_mode),
             export_path,
             query_context,
-            no_lazy,
             custom_name: custom_name.cloned(),
             use_caller_id,
             platform,
@@ -217,14 +208,6 @@ fn get_command() -> Command {
                 .help(format!("Specify an optional custom directory for outputting exported data\nIf omitted, the default directory is {}/{DEFAULT_OUTPUT_DIR}\n", home()))
                 .display_order(6)
                 .value_name("path/to/save/files"),
-        )
-        .arg(
-            Arg::new(OPTION_DISABLE_LAZY_LOADING)
-                .short('l')
-                .long(OPTION_DISABLE_LAZY_LOADING)
-                .help("Do not include `loading=\"lazy\"` in HTML export `img` tags\nThis will make pages load slower but PDF generation work\n")
-                .action(ArgAction::SetTrue)
-                .display_order(9),
         )
         .arg(
             Arg::new(OPTION_CUSTOM_NAME)
