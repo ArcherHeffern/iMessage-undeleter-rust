@@ -12,7 +12,7 @@ use crate::{
         compatibility::attachment_manager::AttachmentManagerMode, error::RuntimeError,
         runtime::Config,
     },
-    exporters::exporter::{ATTACHMENT_NO_FILENAME, BalloonFormatter, Writer},
+    exporters::exporter::{BalloonFormatter, Writer},
 };
 
 use imessage_database::{

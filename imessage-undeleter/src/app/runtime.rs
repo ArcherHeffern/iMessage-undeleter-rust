@@ -23,7 +23,7 @@ use crate::{
         error::RuntimeError,
         options::{Options, OPTION_CLEARTEXT_PASSWORD},
         sanitizers::sanitize_filename,
-    }, exporters::exporter::{Writer, ATTACHMENT_NO_FILENAME}, TXT
+    }, exporters::exporter::ATTACHMENT_NO_FILENAME, TXT
 };
 
 use imessage_database::{
