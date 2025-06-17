@@ -28,7 +28,7 @@ use crate::app::{error::RuntimeError};
 pub(crate) const ATTACHMENT_NO_FILENAME: &str = "Attachment missing name metadata!";
 
 /// Defines behavior for formatting message instances to the desired output format
-pub(super) trait Writer<'a> {
+pub trait Writer<'a> {
     /// Format a message, including its tapbacks and replies
     fn format_message(&self, msg: &Message, indent: usize) -> Result<String, TableError>;
     /// Format an attachment, possibly by reading the disk

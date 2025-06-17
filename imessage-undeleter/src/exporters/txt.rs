@@ -306,22 +306,23 @@ impl<'a> Writer<'a> for TXT<'a> {
         metadata: &AttachmentMeta,
     ) -> Result<String, &'a str> {
         // Copy the file, if requested
-        self.config
-            .options
-            .attachment_manager
-            .handle_attachment(message, attachment, self.config)
-            .ok_or(attachment.filename().ok_or(ATTACHMENT_NO_FILENAME)?)?;
+        unimplemented!();
+        // self.config
+        //     .options
+        //     .attachment_manager
+        //     .handle_attachment(message, attachment, self.config)
+        //     .ok_or(attachment.filename().ok_or(ATTACHMENT_NO_FILENAME)?)?;
 
-        // Append the transcription if one is provided
-        if let Some(transcription) = metadata.transcription {
-            return Ok(format!(
-                "{}\nTranscription: {transcription}",
-                self.config.message_attachment_path(attachment)
-            ));
-        }
+        // // Append the transcription if one is provided
+        // if let Some(transcription) = metadata.transcription {
+        //     return Ok(format!(
+        //         "{}\nTranscription: {transcription}",
+        //         self.config.message_attachment_path(attachment)
+        //     ));
+        // }
 
-        // Build a relative filepath from the fully qualified one on the `Attachment`
-        Ok(self.config.message_attachment_path(attachment))
+        // // Build a relative filepath from the fully qualified one on the `Attachment`
+        // Ok(self.config.message_attachment_path(attachment))
     }
 
     fn format_sticker(&self, sticker: &'a mut Attachment, message: &Message) -> String {

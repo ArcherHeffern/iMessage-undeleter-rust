@@ -26,7 +26,6 @@ pub const DEFAULT_OUTPUT_DIR: &str = "undeleted_messages";
 // CLI Arg Names
 pub const OPTION_DB_PATH: &str = "db-path";
 pub const OPTION_ATTACHMENT_ROOT: &str = "attachment-root";
-pub const OPTION_ATTACHMENT_MANAGER: &str = "copy-method";
 pub const OPTION_DIAGNOSTIC: &str = "diagnostics";
 pub const OPTION_EXPORT_PATH: &str = "export-path";
 pub const OPTION_CHECK_LAST_N_MESSAGES: &str = "check-last-n";
@@ -79,7 +78,6 @@ impl Options {
     pub fn from_args(args: &ArgMatches) -> Result<Self, RuntimeError> {
         let user_path: Option<&String> = args.get_one(OPTION_DB_PATH);
         let attachment_root: Option<&String> = args.get_one(OPTION_ATTACHMENT_ROOT);
-        let attachment_manager_type: Option<&String> = args.get_one(OPTION_ATTACHMENT_MANAGER);
         let diagnostic = args.get_flag(OPTION_DIAGNOSTIC);
         let user_export_path: Option<&String> = args.get_one(OPTION_EXPORT_PATH);
         let check_last_n_messages_string: Option<&String> = args.get_one(OPTION_CHECK_LAST_N_MESSAGES);
@@ -94,7 +92,6 @@ impl Options {
 
         // During `diagnostics`, none of these may be set
         let diag_conflicts = [
-            (attachment_manager_type.is_some(), OPTION_ATTACHMENT_MANAGER),
             (user_export_path.is_some(), OPTION_EXPORT_PATH),
             (no_lazy, OPTION_DISABLE_LAZY_LOADING),
             (check_last_n_messages.is_some(), OPTION_CHECK_LAST_N_MESSAGES),
@@ -165,14 +162,7 @@ impl Options {
         }
 
         // Determine the attachment manager mode
-        let attachment_manager_mode = match attachment_manager_type {
-            Some(manager) => {
-                AttachmentManagerMode::from_cli(manager).ok_or(RuntimeError::InvalidOptions(format!(
-                    "{manager} is not a valid attachment manager mode! Must be one of <{SUPPORTED_ATTACHMENT_MANAGER_MODES}>"
-                )))?
-            }
-            None => AttachmentManagerMode::default(),
-        };
+        let attachment_manager_mode = AttachmentManagerMode::default();
 
         // Validate the provided export path
         let export_path = PathBuf::from(user_export_path.unwrap_or(&format!("./{DEFAULT_OUTPUT_DIR}")));
@@ -221,12 +211,12 @@ fn get_command() -> Command {
             .display_order(0),
         )
         .arg(
-            Arg::new(OPTION_ATTACHMENT_MANAGER)
-            .short('c')
-            .long(OPTION_ATTACHMENT_MANAGER)
-            .help(format!("Specify an optional method to use when copying message attachments\n`clone` will copy all files without converting anything\n`basic` will copy all files and convert HEIC images to JPEG\n`full` will copy all files and convert HEIC files to JPEG, CAF to MP4, and MOV to MP4\nIf omitted, the default is `{}`\nImageMagick is required to convert images on non-macOS platforms\nffmpeg is required to convert audio on non-macOS platforms and video on all platforms\n", AttachmentManagerMode::default()))
-            .display_order(2)
-            .value_name(SUPPORTED_ATTACHMENT_MANAGER_MODES),
+            Arg::new(OPTION_CHECK_LAST_N_MESSAGES)
+                .short('n')
+                .long(OPTION_CHECK_LAST_N_MESSAGES)
+                .help("Only Check last n messages")
+                .display_order(2)
+                .value_name("10"),
         )
         .arg(
             Arg::new(OPTION_DB_PATH)
@@ -298,14 +288,6 @@ fn get_command() -> Command {
                 .help("Optional password for encrypted iOS backups\nThis is only used when the source is an encrypted iOS backup directory\n")
                 .display_order(14)
                 .value_name("password"),
-        )
-        .arg(
-            Arg::new(OPTION_CHECK_LAST_N_MESSAGES)
-                .short('n')
-                .long(OPTION_CHECK_LAST_N_MESSAGES)
-                .help("Only Check last n messages")
-                .display_order(15)
-                .value_name("10"),
         )
 }
 

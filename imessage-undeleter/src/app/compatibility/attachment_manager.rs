@@ -129,6 +129,7 @@ impl AttachmentManager {
         &'a self,
         message: &Message,
         attachment: &'a mut Attachment,
+        new_name: &str,
         config: &Config,
     ) -> Option<()> {
         if !matches!(self.mode, AttachmentManagerMode::Disabled) {
@@ -168,14 +169,8 @@ impl AttachmentManager {
             }
 
             // Create a path to copy the file to
-            let mut to = config.attachment_path();
-
-            // Add the subdirectory
-            let sub_dir = config.conversation_attachment_path(message.chat_id);
-            to.push(sub_dir);
-
-            // Add a stable filename
-            to.push(attachment.rowid.to_string());
+            let mut to = config.tmp_attachment_path();
+            to.push(new_name);
 
             // Set the new file's extension to the original one, if provided
             if !from.is_dir() && attachment.extension().is_some() {
@@ -192,53 +187,40 @@ impl AttachmentManager {
             let mut new_media_type: Option<MediaType> = None;
 
             match attachment.mime_type() {
-                MediaType::Image(_) => match self.mode {
-                    AttachmentManagerMode::Basic | AttachmentManagerMode::Full => {
-                        match &self.image_converter {
-                            Some(converter) => {
-                                if attachment.is_sticker {
-                                    new_media_type = sticker_copy_convert(
-                                        &from,
-                                        &mut to,
-                                        converter,
-                                        &self.video_converter,
-                                        attachment.mime_type(),
-                                    );
-                                } else {
-                                    new_media_type = image_copy_convert(
-                                        &from,
-                                        &mut to,
-                                        converter,
-                                        attachment.mime_type(),
-                                    );
-                                }
-                            }
-                            None => copy_raw(&from, &to),
-                        }
-                    }
-                    AttachmentManagerMode::Clone => copy_raw(&from, &to),
-                    AttachmentManagerMode::Disabled => unreachable!(),
-                },
-                MediaType::Video(_) => match self.mode {
-                    AttachmentManagerMode::Full => match &self.video_converter {
-                        Some(converter) => {
-                            new_media_type = video_copy_convert(
+                MediaType::Image(_) => match &self.image_converter {
+                    Some(converter) => {
+                        if attachment.is_sticker {
+                            new_media_type = sticker_copy_convert(
                                 &from,
                                 &mut to,
                                 converter,
-                                &self.hardware_encoder,
+                                &self.video_converter,
+                                attachment.mime_type(),
+                            );
+                        } else {
+                            new_media_type = image_copy_convert(
+                                &from,
+                                &mut to,
+                                converter,
                                 attachment.mime_type(),
                             );
                         }
-                        None => copy_raw(&from, &to),
-                    },
-                    AttachmentManagerMode::Clone | AttachmentManagerMode::Basic => {
-                        copy_raw(&from, &to);
                     }
-                    AttachmentManagerMode::Disabled => unreachable!(),
+                    None => copy_raw(&from, &to),
                 },
-                MediaType::Audio(_) => match self.mode {
-                    AttachmentManagerMode::Full => match &self.audio_converter {
+                MediaType::Video(_) => match &self.video_converter {
+                    Some(converter) => {
+                        new_media_type = video_copy_convert(
+                            &from,
+                            &mut to,
+                            converter,
+                            &self.hardware_encoder,
+                            attachment.mime_type(),
+                        );
+                    }
+                    None => copy_raw(&from, &to),
+                },
+                MediaType::Audio(_) => match &self.audio_converter {
                         Some(converter) => {
                             new_media_type = audio_copy_convert(
                                 &from,
@@ -248,11 +230,6 @@ impl AttachmentManager {
                             );
                         }
                         None => copy_raw(&from, &to),
-                    },
-                    AttachmentManagerMode::Clone | AttachmentManagerMode::Basic => {
-                        copy_raw(&from, &to);
-                    }
-                    AttachmentManagerMode::Disabled => unreachable!(),
                 },
                 _ => copy_raw(&from, &to),
             }
@@ -297,7 +274,7 @@ pub enum AttachmentManagerMode {
 
 impl Default for AttachmentManagerMode {
     fn default() -> Self {
-        Self::Disabled
+        Self::Full
     }
 }
 
